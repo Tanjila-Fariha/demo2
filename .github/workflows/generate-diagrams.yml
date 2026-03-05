@@ -1,0 +1,41 @@
+name: Generate UML Diagrams
+on:
+  push:
+    branches:
+      - main  # We will use 'main' as our primary branch
+
+jobs:
+  draw:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Pylint
+        run: pip install pylint
+
+      - name: Create Class Metadata
+        run: |
+          mkdir -p diagrams
+          pyreverse -o puml -p srbd_project demo.py
+          mv classes_srbd_project.puml diagrams/classes.puml
+
+      - name: Render All Diagrams to PNG
+        uses: cloudbees/plantuml-github-action@master
+        with:
+          args: -v -tpng diagrams/*.puml
+
+      - name: Save Images to GitHub
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add diagrams/*.png
+          git commit -m "Auto-generate UML diagrams" || echo "No changes"
+          git push
