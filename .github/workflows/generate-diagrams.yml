@@ -30,23 +30,24 @@ jobs:
 
       - name: Generate Master Class Diagram
         run: |
-          # hpp2plantuml finds all headers and creates a valid .puml file with arrows
+          # Use hpp2plantuml to create a valid UML file from all headers
           hpp2plantuml -i "**/*.hpp" -o docs/diagrams/classes.puml
-          # Render the .puml to .png
+          # Render it
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png
 
-      - name: Generate Master Sequence Diagram
+      - name: Generate Master Sequence (Call) Diagram
         run: |
-          # We use a combined approach to capture the logic flow
-          echo "@startuml" > docs/diagrams/sequence.puml
-          echo "skinparam participantpadding 20" >> docs/diagrams/sequence.puml
-          # Extracting method signatures and calls
-          grep -rE "void [a-zA-Z0-9_]+::[a-zA-Z0-9_]+\(.*\)" . --include="*.cpp" >> docs/diagrams/sequence.puml
-          echo "@enduml" >> docs/diagrams/sequence.puml
-          
-          plantuml docs/diagrams/sequence.puml -tpng
-          mv docs/diagrams/sequence.png docs/diagrams/project_sequence_diagram.png || true
+          # Doxygen generates individual call graphs in docs/xml or docs/latex.
+          # We will use dot (from Graphviz) to combine discovered calls into one view.
+          # For a single project-wide call graph, we target the main entry point logic.
+          find docs -name "*_cgraph.dot" | xargs cat > docs/diagrams/combined_calls.dot || echo "No calls found"
+          if [ -s docs/diagrams/combined_calls.dot ]; then
+            dot -Tpng docs/diagrams/combined_calls.dot -o docs/diagrams/project_sequence_diagram.png
+          else
+            echo "Fallback: creating empty placeholder"
+            touch docs/diagrams/project_sequence_diagram.png
+          fi
 
       - name: Deploy Diagrams to Repo
         run: |

@@ -1,32 +1,47 @@
+# --- PROJECT INFORMATION ---
 PROJECT_NAME           = "Corporate System Architecture"
 OUTPUT_DIRECTORY       = docs
 
-# --- SCANNING ---
+# --- INPUT SETTINGS ---
+# Scan from the root to find all folders (identity, roles, commerce, etc.)
 INPUT                  = .
 RECURSIVE              = YES
-FILE_PATTERNS          = *.cpp *.hpp *.h
+FILE_PATTERNS          = *.cpp *.hpp *.h *.cc
 FULL_PATH_NAMES        = YES
 STRIP_FROM_PATH        = .
 
 # --- EXCLUSIONS ---
+# Prevent Doxygen from scanning its own output or hidden git files
 EXCLUDE                = build .git docs tests node_modules
 EXCLUDE_PATTERNS       = */test/* */external/*
 
-# --- EXTRACTION ---
+# --- EXTRACTION SETTINGS ---
+# Extract everything so the UML shows private members and internal logic
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = YES
 EXTRACT_STATIC         = YES
-REFERENCED_BY_RELATION = YES
-REFERENCES_RELATION    = YES
+EXTRACT_LOCAL_CLASSES  = YES
 
-# --- DIAGRAM SETTINGS ---
+# --- DIAGRAM & GRAPHVIZ (DOT) SETTINGS ---
+# This section is critical for the "Sequence/Call" logic
 HAVE_DOT               = YES
 UML_LOOK               = YES
+TEMPLATE_RELATIONS     = YES
+
+# Generate Call Graphs to show function execution flow
 CALL_GRAPH             = YES
 CALLER_GRAPH           = YES
+DIRECTORY_GRAPH        = YES
 
-# --- OUTPUTS ---
+# Diagram appearance
+DOT_IMAGE_FORMAT       = png
+DOT_TRANSPARENT        = YES
+DOT_MULTI_TARGETS      = YES
+
+# --- OUTPUT FORMATS ---
+# We disable HTML and LaTeX to keep the CI/CD pipeline fast
+# We enable XML because it provides the data for the master diagrams
 GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
 GENERATE_HTML          = NO
 GENERATE_LATEX         = NO
-XML_PROGRAMLISTING     = NO
