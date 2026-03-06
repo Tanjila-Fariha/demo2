@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install Toolchain
         run: |
@@ -22,49 +20,38 @@ jobs:
           sudo apt-get install -y doxygen graphviz plantuml python3-pip
           pip3 install hpp2plantuml
 
-      - name: Prepare Output Directory
-        run: mkdir -p docs/diagrams
-
       - name: Run Doxygen
         run: doxygen Doxyfile
 
       - name: Generate Master Class Diagram
         run: |
+          mkdir -p docs/diagrams
           hpp2plantuml -i "**/*.hpp" -o docs/diagrams/classes.puml
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png || true
 
-      - name: Generate Master Sequence (Call) Diagram
+      - name: Capture Sequence Diagram
         run: |
-          # 1. Look for the main call graph
-          REAL_DOT=$(find docs -name "main_8cpp*cgraph.dot" | head -n 1)
+          # Doxygen generates PNGs in the html_docs folder
+          # We find the call graph for main() and move it
+          mkdir -p docs/diagrams
+          MAIN_GRAPH=$(find docs/html_docs -name "main_8cpp*cgraph.png" | head -n 1)
           
-          if [ -n "$REAL_DOT" ]; then
-            echo "Found main call graph: $REAL_DOT"
-            dot -Tpng "$REAL_DOT" -o docs/diagrams/project_sequence_diagram.png
+          if [ -n "$MAIN_GRAPH" ]; then
+            cp "$MAIN_GRAPH" docs/diagrams/project_sequence_diagram.png
           else
-            # 2. Try to find any call graph
-            BIG_DOT=$(find docs -name "*cgraph.dot" | xargs du -b | sort -nr | head -1 | cut -f2 || echo "")
-            if [ -n "$BIG_DOT" ]; then
-                dot -Tpng "$BIG_DOT" -o docs/diagrams/project_sequence_diagram.png
-            else
-                echo "Creating structured professional fallback"
-                echo "@startuml" > final.puml
-                echo "Main -> Customer : login()" >> final.puml
-                echo "Customer -> Cart : add_item()" >> final.puml
-                echo "Main -> Admin : delete_user(buyer)" >> final.puml
-                echo "@enduml" >> final.puml
-                # Render to the root, then move
-                plantuml final.puml -tpng
-                mv final.png docs/diagrams/project_sequence_diagram.png
+            # If main isn't found, find the largest cgraph PNG available
+            BIGGEST_GRAPH=$(find docs/html_docs -name "*cgraph.png" | xargs du -b | sort -nr | head -1 | cut -f2 || echo "")
+            if [ -n "$BIGGEST_GRAPH" ]; then
+              cp "$BIGGEST_GRAPH" docs/diagrams/project_sequence_diagram.png
             fi
           fi
 
-      - name: Deploy Diagrams to Repo
+      - name: Deploy Diagrams
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add docs/diagrams/*.png
-          git commit -m "docs: update professional architecture diagrams" || exit 0
+          git commit -m "docs: sync architecture diagrams" || exit 0
           git pull origin main --rebase
           git push origin main
