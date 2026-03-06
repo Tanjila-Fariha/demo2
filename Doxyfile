@@ -1,39 +1,32 @@
-PROJECT_NAME           = "Unified Corporate System"
+PROJECT_NAME           = "Corporate System Architecture"
 OUTPUT_DIRECTORY       = docs
 
-# --- 1. SCANNING ENGINE ---
+# --- SCANNING ---
 INPUT                  = .
 RECURSIVE              = YES
-FILE_PATTERNS          = *.cpp *.hpp *.h *.c *.cc
+FILE_PATTERNS          = *.cpp *.hpp *.h
 FULL_PATH_NAMES        = YES
 STRIP_FROM_PATH        = .
 
-# --- 2. EXCLUSIONS (Ignore Noise) ---
-EXCLUDE                = build .git vcpkg node_modules tests docs
+# --- EXCLUSIONS ---
+EXCLUDE                = build .git docs tests node_modules
 EXCLUDE_PATTERNS       = */test/* */external/*
 
-# --- 3. EXTRACTION (Capture Everything for One Map) ---
+# --- EXTRACTION ---
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = YES
 EXTRACT_STATIC         = YES
 REFERENCED_BY_RELATION = YES
 REFERENCES_RELATION    = YES
 
-# --- 4. DIAGRAM LOGIC ---
+# --- DIAGRAM SETTINGS ---
 HAVE_DOT               = YES
 UML_LOOK               = YES
-# We turn off individual graphs to prevent cluttering the "docs" folder
-CLASS_DIAGRAMS         = NO
-COLLABORATION_GRAPH    = NO
-INCLUDE_GRAPH          = NO
-INCLUDED_BY_GRAPH      = NO
-
-# Enable Call Graphs (This data is used for the Sequence flow)
 CALL_GRAPH             = YES
 CALLER_GRAPH           = YES
 
-# --- 5. OUTPUT FORMATS ---
+# --- OUTPUTS ---
 GENERATE_XML           = YES
-XML_PROGRAMLISTING     = NO
 GENERATE_HTML          = NO
 GENERATE_LATEX         = NO
+XML_PROGRAMLISTING     = NO

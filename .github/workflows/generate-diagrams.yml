@@ -1,4 +1,4 @@
-name: Auto-Generate Unified UML
+name: Auto-Generate Professional UML
 
 on:
   push:
@@ -19,31 +19,34 @@ jobs:
       - name: Install Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz plantuml
+          sudo apt-get install -y doxygen graphviz plantuml python3-pip
+          pip3 install hpp2plantuml
 
       - name: Prepare Output Directory
         run: mkdir -p docs/diagrams
 
-      - name: Run Doxygen (Metadata Extraction)
+      - name: Run Doxygen
         run: doxygen Doxyfile
 
-      - name: Generate One Master Class Diagram
-        # This command scans all headers and builds ONE project-wide class map
+      - name: Generate Master Class Diagram
         run: |
-          plantuml -recursive "." -o "./docs/diagrams" -tpng
-          # Since plantuml generates files based on class names, 
-          # we merge/rename to ensure only ONE main diagram is kept.
-          # (Note: If multiple images are created, they represent the system modules)
-          mv docs/diagrams/*.png docs/diagrams/project_class_diagram.png || true
+          # hpp2plantuml finds all headers and creates a valid .puml file with arrows
+          hpp2plantuml -i "**/*.hpp" -o docs/diagrams/classes.puml
+          # Render the .puml to .png
+          plantuml docs/diagrams/classes.puml -tpng
+          mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png
 
-      - name: Generate One Master Sequence Diagram
-        # We use a specific PlantUML feature to extract call sequences 
-        # from the code files recursively.
+      - name: Generate Master Sequence Diagram
         run: |
-          # Use -pipe to force a single unified output for sequence-like logic
-          find . -name "*.cpp" -o -name "*.hpp" | xargs cat | grep -E "class|void|::" > project_logic.puml
-          plantuml project_logic.puml -o "./docs/diagrams" -tpng
-          mv docs/diagrams/project_logic.png docs/diagrams/project_sequence_diagram.png || true
+          # We use a combined approach to capture the logic flow
+          echo "@startuml" > docs/diagrams/sequence.puml
+          echo "skinparam participantpadding 20" >> docs/diagrams/sequence.puml
+          # Extracting method signatures and calls
+          grep -rE "void [a-zA-Z0-9_]+::[a-zA-Z0-9_]+\(.*\)" . --include="*.cpp" >> docs/diagrams/sequence.puml
+          echo "@enduml" >> docs/diagrams/sequence.puml
+          
+          plantuml docs/diagrams/sequence.puml -tpng
+          mv docs/diagrams/sequence.png docs/diagrams/project_sequence_diagram.png || true
 
       - name: Deploy Diagrams to Repo
         run: |
@@ -51,5 +54,5 @@ jobs:
           git config --local user.name "GitHub Action"
           git pull origin main --rebase
           git add docs/diagrams/*.png
-          git commit -m "docs: update master architecture diagrams" || exit 0
+          git commit -m "docs: generate professional architecture diagrams" || exit 0
           git push origin main
