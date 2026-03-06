@@ -12,7 +12,7 @@ STRIP_FROM_PATH        = .
 
 # --- EXCLUSIONS ---
 # Prevent Doxygen from scanning its own output or hidden git files
-EXCLUDE = build .git node_modules docs
+# EXCLUDE = build .git node_modules docs
 
 # --- EXTRACTION SETTINGS (Important for accurate maps) ---
 EXTRACT_ALL            = YES
@@ -43,3 +43,6 @@ SOURCE_BROWSER         = YES
 # This links declarations in .hpp to definitions in .cpp
 INLINE_SOURCES          = YES
 # This allows Doxygen to trace calls even if they aren't documented with comments
+
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES

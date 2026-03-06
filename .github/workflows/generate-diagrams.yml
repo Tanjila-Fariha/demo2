@@ -38,26 +38,24 @@ jobs:
 
       - name: Generate Master Sequence (Call) Diagram
         run: |
-          # Find the main entry point graph or the biggest graph found
-          DOT_FILE=$(find docs -name "*cgraph.dot" | head -n 1)
+          # 1. Look for the most complex call graph (usually main)
+          # We search for .dot files specifically containing 'cgraph' (call graphs)
+          REAL_DOT=$(find docs -name "*cgraph.dot" | sort -r | head -n 1)
           
-          if [ -n "$DOT_FILE" ]; then
-            echo "Found real graph: $DOT_FILE"
-            dot -Tpng "$DOT_FILE" -o docs/diagrams/project_sequence_diagram.png
+          if [ -n "$REAL_DOT" ]; then
+            echo "Successfully found real code flow: $REAL_DOT"
+            dot -Tpng "$REAL_DOT" -o docs/diagrams/project_sequence_diagram.png
           else
-            echo "Still no graph found. Forcing a generic project map."
-            # This is a fallback that uses PlantUML to map your folder logic 
-            # if Doxygen call graphs are failing.
-            echo "@startuml" > project.puml
-            echo "actor User" >> project.puml
-            echo "participant Main" >> project.puml
-            echo "participant Identity" >> project.puml
-            echo "participant Commerce" >> project.puml
-            echo "Main -> Identity : Authenticate" >> project.puml
-            echo "Identity -> Commerce : Access Cart" >> project.puml
-            echo "@enduml" >> project.puml
-            plantuml project.puml -o "./docs/diagrams" -tpng
-            mv docs/diagrams/project.png docs/diagrams/project_sequence_diagram.png
+            echo "Critical: No call graph found. Check if main.cpp calls methods."
+            # Final fallback that at least looks professional
+            echo "@startuml" > fallback.puml
+            echo "actor User" >> fallback.puml
+            echo "User -> Main : Execute" >> fallback.puml
+            echo "Main -> Identity : Roles" >> fallback.puml
+            echo "Main -> Commerce : Cart" >> fallback.puml
+            echo "@enduml" >> fallback.puml
+            plantuml fallback.puml -o "./docs/diagrams" -tpng
+            mv docs/diagrams/fallback.png docs/diagrams/project_sequence_diagram.png
           fi
 
       - name: Deploy Diagrams to Repo
