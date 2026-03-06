@@ -1,5 +1,0 @@
-@startuml
-Customer -> Cart: add_item("Laptop")
-Cart -> Database: update_stock()
-Database --> Cart: success
-@enduml

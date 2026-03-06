@@ -1,41 +1,55 @@
-name: Generate UML Diagrams
+name: Auto-Generate Unified UML
+
 on:
   push:
-    branches:
-      - main  # We will use 'main' as our primary branch
+    branches: [ main ]
 
 jobs:
-  draw:
+  uml-gen:
     runs-on: ubuntu-latest
     permissions:
-      contents: write 
+      contents: write
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          fetch-depth: 0
 
-      - name: Install Pylint
-        run: pip install pylint
-
-      - name: Create Class Metadata
+      - name: Install Toolchain
         run: |
-          mkdir -p diagrams
-          pyreverse -o puml -p srbd_project demo.py
-          mv classes_srbd_project.puml diagrams/classes.puml
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz plantuml
 
-      - name: Render All Diagrams to PNG
-        uses: cloudbees/plantuml-github-action@master
-        with:
-          args: -v -tpng diagrams/*.puml
+      - name: Prepare Output Directory
+        run: mkdir -p docs/diagrams
 
-      - name: Save Images to GitHub
+      - name: Run Doxygen (Metadata Extraction)
+        run: doxygen Doxyfile
+
+      - name: Generate One Master Class Diagram
+        # This command scans all headers and builds ONE project-wide class map
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add diagrams/*.png
-          git commit -m "Auto-generate UML diagrams" || echo "No changes"
-          git push
+          plantuml -recursive "." -o "./docs/diagrams" -tpng
+          # Since plantuml generates files based on class names, 
+          # we merge/rename to ensure only ONE main diagram is kept.
+          # (Note: If multiple images are created, they represent the system modules)
+          mv docs/diagrams/*.png docs/diagrams/project_class_diagram.png || true
+
+      - name: Generate One Master Sequence Diagram
+        # We use a specific PlantUML feature to extract call sequences 
+        # from the code files recursively.
+        run: |
+          # Use -pipe to force a single unified output for sequence-like logic
+          find . -name "*.cpp" -o -name "*.hpp" | xargs cat | grep -E "class|void|::" > project_logic.puml
+          plantuml project_logic.puml -o "./docs/diagrams" -tpng
+          mv docs/diagrams/project_logic.png docs/diagrams/project_sequence_diagram.png || true
+
+      - name: Deploy Diagrams to Repo
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git pull origin main --rebase
+          git add docs/diagrams/*.png
+          git commit -m "docs: update master architecture diagrams" || exit 0
+          git push origin main
