@@ -1,48 +1,26 @@
-# --- PROJECT INFORMATION ---
 PROJECT_NAME           = "Corporate Demo"
 OUTPUT_DIRECTORY       = docs
-
-# --- INPUT SETTINGS ---
-# Scan from the root to catch all files (identity, commerce, roles)
 INPUT                  = .
 RECURSIVE              = YES
 FILE_PATTERNS          = *.cpp *.hpp *.h
 FULL_PATH_NAMES        = YES
 STRIP_FROM_PATH        = .
 
-# --- EXCLUSIONS ---
-# Prevent Doxygen from scanning its own output or hidden git files
-# EXCLUDE = build .git node_modules docs
-
-# --- EXTRACTION SETTINGS (Important for accurate maps) ---
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = YES
 EXTRACT_STATIC         = YES
 
-# --- DIAGRAM & GRAPHVIZ (DOT) SETTINGS (The Sequence Fix) ---
-# Doxygen uses DOT to trace calls. This must be enabled.
 HAVE_DOT               = YES
 UML_LOOK               = YES
-
-# --- Call Graph Generation (This must be YES for a non-0B diagram) ---
-# This trace calls made BY functions (main -> call -> ...)
 CALL_GRAPH             = YES
-# This trace calls made TO functions (... -> call -> main)
 CALLER_GRAPH           = YES
 
-# --- OUTPUT FORMATS ---
-# We disable HTML and LaTeX to keep the CI/CD pipeline fast
 GENERATE_XML           = YES
 XML_PROGRAMLISTING     = NO
 GENERATE_HTML          = NO
 GENERATE_LATEX         = NO
 
-# --- CORE FIXES FOR 0B SEQUENCE DIAGRAM ---
-# This ensures Doxygen looks INSIDE the .cpp files for function logic
 SOURCE_BROWSER         = YES
-# This links declarations in .hpp to definitions in .cpp
-INLINE_SOURCES          = YES
-# This allows Doxygen to trace calls even if they aren't documented with comments
-
+INLINE_SOURCES         = YES
 REFERENCED_BY_RELATION = YES
 REFERENCES_RELATION    = YES
