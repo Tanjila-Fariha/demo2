@@ -30,40 +30,48 @@ jobs:
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png || true
 
-      - name: Auto-Generate Sequence from Code Logic
-      # This step automatically parses Doxygen's discovery into a Sequence timeline
+      - name: Universal Sequence Automation with Returns
         run: |
           mkdir -p docs/diagrams
+          # This Python script converts Doxygen XML into a professional vertical timeline
           python3 - <<EOF
           import os
           import xml.etree.ElementTree as ET
 
-          # Find the main function's XML file
           xml_dir = 'docs/xml'
-          puml_content = ["@startuml", "skinparam style strictuml", "participant main"]
+          puml = [
+              "@startuml",
+              "skinparam style strictuml",
+              "skinparam sequenceMessageAlign center",
+              "participant main"
+          ]
           
-          # Look for call relationships in the XML
-          for filename in os.listdir(xml_dir):
-              if filename.startswith('main_8cpp') or filename.endswith('.xml'):
-                  try:
-                      tree = ET.parse(os.path.join(xml_dir, filename))
+          if os.path.exists(xml_dir):
+              # 1. Find the main.cpp XML file produced by Doxygen
+              for fn in os.listdir(xml_dir):
+                  if 'main_8cpp' in fn and fn.endswith('.xml'):
+                      tree = ET.parse(os.path.join(xml_dir, fn))
+                      # 2. Trace all function calls made from inside 'main'
                       for member in tree.findall(".//memberdef"):
-                          name = member.find('name').text
-                          for call in member.findall(".//references"):
-                              target = call.text
-                              if name == 'main':
-                                  puml_content.append(f"main -> {target.split('::')[0]} : {target}()")
-                  except:
-                      continue
+                          if member.find('name').text == 'main':
+                              for ref in member.findall(".//references"):
+                                  call = ref.text
+                                  if '::' in call:
+                                      obj, method = call.split('::', 1)
+                                      # Add the call, activation bar, and return logic
+                                      puml.append(f"main -> {obj} : {method}()")
+                                      puml.append(f"activate {obj}")
+                                      puml.append(f"{obj} --> main : return")
+                                      puml.append(f"deactivate {obj}")
           
-          puml_content.append("@enduml")
-          with open("auto_sequence.puml", "w") as f:
-              f.write("\n".join(puml_content))
+          puml.append("@enduml")
+          with open("dynamic_seq.puml", "w") as f:
+              f.write("\n".join(puml))
           EOF
 
-          # Render the dynamic file
-          plantuml auto_sequence.puml -tpng
-          mv auto_sequence.png docs/diagrams/project_sequence_diagram.png
+          # Render the dynamic file using the PlantUML engine
+          plantuml dynamic_seq.puml -tpng
+          mv dynamic_seq.png docs/diagrams/project_sequence_diagram.png
 
       - name: Deploy Diagrams
         run: |
