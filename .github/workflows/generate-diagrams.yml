@@ -30,29 +30,40 @@ jobs:
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png || true
 
-      - name: Generate Master Sequence Diagram
+      - name: Auto-Generate Sequence from Code Logic
+      # This step automatically parses Doxygen's discovery into a Sequence timeline
         run: |
           mkdir -p docs/diagrams
-          # We create a REAL Sequence Diagram based on your main.cpp logic
-          echo "@startuml" > sequence.puml
-          echo "skinparam Style strictuml" >> sequence.puml
-          echo "actor User" >> sequence.puml
-          echo "participant Main" >> sequence.puml
-          echo "participant Admin" >> sequence.puml
-          echo "participant Customer" >> sequence.puml
-          echo "participant Cart" >> sequence.puml
+          python3 - <<EOF
+          import os
+          import xml.etree.ElementTree as ET
+
+          # Find the main function's XML file
+          xml_dir = 'docs/xml'
+          puml_content = ["@startuml", "skinparam style strictuml", "participant main"]
           
-          echo "User -> Main : Execute" >> sequence.puml
-          echo "Main -> Customer : login()" >> sequence.puml
-          echo "Main -> Customer : getCart()" >> sequence.puml
-          echo "Customer -> Cart : add_item()" >> sequence.puml
-          echo "Main -> Customer : place_order()" >> sequence.puml
-          echo "Main -> Admin : login()" >> sequence.puml
-          echo "Main -> Admin : delete_user(buyer)" >> sequence.puml
-          echo "@enduml" >> sequence.puml
+          # Look for call relationships in the XML
+          for filename in os.listdir(xml_dir):
+              if filename.startswith('main_8cpp') or filename.endswith('.xml'):
+                  try:
+                      tree = ET.parse(os.path.join(xml_dir, filename))
+                      for member in tree.findall(".//memberdef"):
+                          name = member.find('name').text
+                          for call in member.findall(".//references"):
+                              target = call.text
+                              if name == 'main':
+                                  puml_content.append(f"main -> {target.split('::')[0]} : {target}()")
+                  except:
+                      continue
           
-          plantuml sequence.puml -tpng
-          mv sequence.png docs/diagrams/project_sequence_diagram.png
+          puml_content.append("@enduml")
+          with open("auto_sequence.puml", "w") as f:
+              f.write("\n".join(puml_content))
+          EOF
+
+          # Render the dynamic file
+          plantuml auto_sequence.puml -tpng
+          mv auto_sequence.png docs/diagrams/project_sequence_diagram.png
 
       - name: Deploy Diagrams
         run: |
