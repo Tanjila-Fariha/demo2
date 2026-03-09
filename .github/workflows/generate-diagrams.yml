@@ -30,54 +30,66 @@ jobs:
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png || true
 
-      - name: Universal Sequence Automation with Returns
+      - name: Generate Method-Level Sequence Diagrams
         run: |
-          mkdir -p docs/diagrams
-          # This Python script converts Doxygen XML into a professional vertical timeline
+          mkdir -p docs/diagrams/methods
           python3 - <<EOF
           import os
           import xml.etree.ElementTree as ET
 
           xml_dir = 'docs/xml'
-          puml = [
-              "@startuml",
-              "skinparam style strictuml",
-              "skinparam sequenceMessageAlign center",
-              "participant main"
-          ]
-          
-          if os.path.exists(xml_dir):
-              # 1. Find the main.cpp XML file produced by Doxygen
-              for fn in os.listdir(xml_dir):
-                  if 'main_8cpp' in fn and fn.endswith('.xml'):
-                      tree = ET.parse(os.path.join(xml_dir, fn))
-                      # 2. Trace all function calls made from inside 'main'
-                      for member in tree.findall(".//memberdef"):
-                          if member.find('name').text == 'main':
-                              for ref in member.findall(".//references"):
-                                  call = ref.text
-                                  if '::' in call:
-                                      obj, method = call.split('::', 1)
-                                      # Add the call, activation bar, and return logic
-                                      puml.append(f"main -> {obj} : {method}()")
-                                      puml.append(f"activate {obj}")
-                                      puml.append(f"{obj} --> main : return")
-                                      puml.append(f"deactivate {obj}")
-          
-          puml.append("@enduml")
-          with open("dynamic_seq.puml", "w") as f:
-              f.write("\n".join(puml))
-          EOF
+          if not os.path.exists(xml_dir):
+              print("XML directory not found!")
+              exit(0)
 
-          # Render the dynamic file using the PlantUML engine
-          plantuml dynamic_seq.puml -tpng
-          mv dynamic_seq.png docs/diagrams/project_sequence_diagram.png
+          # Iterate through class XML files
+          for fn in os.listdir(xml_dir):
+              if fn.startswith('class') and fn.endswith('.xml'):
+                  tree = ET.parse(os.path.join(xml_dir, fn))
+                  class_name = tree.find(".//compoundname").text.replace('::', '_')
+                  
+                  # Find all functions/methods in this class
+                  for member in tree.findall(".//memberdef[@kind='function']"):
+                      method_name = member.find('name').text
+                      
+                      # Check if this method actually calls other things
+                      references = member.findall(".//references")
+                      if not references:
+                          continue
+                          
+                      puml = [
+                          "@startuml",
+                          "skinparam style strictuml",
+                          "skinparam sequenceMessageAlign center",
+                          f"participant {class_name}"
+                      ]
+                      
+                      for ref in references:
+                          call = ref.text
+                          if '::' in call:
+                              target_obj, target_method = call.split('::', 1)
+                              puml.append(f"{class_name} -> {target_obj} : {target_method}()")
+                              puml.append(f"activate {target_obj}")
+                              puml.append(f"{target_obj} --> {class_name} : return")
+                              puml.append(f"deactivate {target_obj}")
+                      
+                      puml.append("@enduml")
+                      
+                      # Create unique file for this method
+                      file_base = f"{class_name}_{method_name}"
+                      with open(f"{file_base}.puml", "w") as f:
+                          f.write("\n".join(puml))
+                      
+                      # Render
+                      os.system(f"plantuml {file_base}.puml -tpng")
+                      os.system(f"mv {file_base}.png docs/diagrams/methods/")
+          EOF
 
       - name: Deploy Diagrams
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add docs/diagrams/*.png
-          git commit -m "docs: sync architecture diagrams" || exit 0
+          git add docs/diagrams/*.png docs/diagrams/methods/*.png
+          git commit -m "docs: sync architecture and method-level diagrams" || exit 0
           git pull origin main --rebase
           git push origin main
