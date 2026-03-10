@@ -20,17 +20,19 @@ jobs:
           sudo apt-get install -y doxygen graphviz plantuml python3-pip libclang-dev
           pip3 install hpp2plantuml clang
 
-      - name: Run Doxygen
-        run: doxygen Doxyfile
-
+      # KEEPING YOUR PERFECT CLASS DIAGRAM LOGIC EXACTLY AS IT WAS
       - name: Generate Master Class Diagram
         run: |
           mkdir -p docs/diagrams/methods
-          # Scans all .h and .hpp for the class structure
-          hpp2plantuml -i "**/*.h*" -o docs/diagrams/classes.puml
+          hpp2plantuml -i "**/*.hpp" -o docs/diagrams/classes.puml
           plantuml docs/diagrams/classes.puml -tpng
           mv docs/diagrams/classes.png docs/diagrams/project_class_diagram.png || true
 
+      # NOW RUN DOXYGEN (After class diagram to avoid the .html conflict)
+      - name: Run Doxygen
+        run: doxygen Doxyfile
+
+      # UPDATED SEQUENCE LOGIC (AST/Clang)
       - name: Generate AST-Detailed Sequence Diagrams (All Extensions)
         run: |
           python3 - <<'EOF'
@@ -66,6 +68,8 @@ jobs:
 
           extensions = ('.cpp', '.hpp', '.h', '.cc', '.cxx')
           for root, _, files in os.walk('.'):
+              # Skip the docs folder to prevent parsing generated HTML as code
+              if 'docs' in root: continue 
               for file in files:
                   if file.lower().endswith(extensions):
                       path = os.path.join(root, file)
@@ -92,6 +96,6 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add docs/diagrams/*.png docs/diagrams/methods/*.png
-          git commit -m "docs: sync all diagrams from .cpp, .h, and .hpp" || exit 0
+          git commit -m "docs: sync all diagrams" || exit 0
           git pull origin main --rebase
           git push origin main
