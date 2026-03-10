@@ -39,43 +39,29 @@ jobs:
           python3 - <<'EOF'
           import clang.cindex
           import os
-          import subprocess
+          import re
+          import shutil
 
-          # Disable compatibility check to ignore missing symbols like 'isExplicit'
           clang.cindex.Config.set_compatibility_check(False)
-
-          # Set library path from environment
           lib_path = os.environ.get('LIBCLANG_PATH')
           if lib_path:
               clang.cindex.Config.set_library_path(lib_path)
 
-          try:
-              idx = clang.cindex.Index.create()
-          except Exception as e:
-              # Robust fallback: search for the .so file manually if the path fails
-              import glob
-              possible_libs = glob.glob("/usr/lib/llvm-*/lib/libclang.so*")
-              if possible_libs:
-                  clang.cindex.Config.set_library_file(possible_libs[0])
-                  idx = clang.cindex.Index.create()
-              else:
-                  raise e
+          idx = clang.cindex.Index.create()
 
           def walk_ast(node, puml, caller_name):
               if node.kind == clang.cindex.CursorKind.IF_STMT:
                   children = list(node.get_children())
-                  if len(children) > 0:
+                  if children:
                       cond_tokens = [t.spelling for t in children[0].get_tokens()]
                       condition = " ".join(cond_tokens).replace('"', "'") if cond_tokens else "condition"
                       puml.append(f"alt {condition}")
-                      for child in children[1:]:
-                          walk_ast(child, puml, caller_name)
+                      for child in children[1:]: walk_ast(child, puml, caller_name)
                       puml.append("end")
                   return
               elif node.kind in [clang.cindex.CursorKind.FOR_STMT, clang.cindex.CursorKind.WHILE_STMT]:
                   puml.append("loop iteration")
-                  for child in node.get_children():
-                      walk_ast(child, puml, caller_name)
+                  for child in node.get_children(): walk_ast(child, puml, caller_name)
                   puml.append("end")
                   return
               elif node.kind == clang.cindex.CursorKind.CALL_EXPR:
@@ -84,11 +70,7 @@ jobs:
                       parent = node.referenced.semantic_parent.spelling
                       if parent and parent != caller_name:
                           puml.append(f"{caller_name} -> {parent} : {target_meth}()")
-                          puml.append(f"activate {parent}")
-                          puml.append(f"{parent} --> {caller_name} : return")
-                          puml.append(f"deactivate {parent}")
-              for child in node.get_children():
-                  walk_ast(child, puml, caller_name)
+              for child in node.get_children(): walk_ast(child, puml, caller_name)
 
           extensions = ('.cpp', '.hpp', '.h', '.cc', '.cxx')
           for root, _, files in os.walk('.'):
@@ -99,19 +81,34 @@ jobs:
                       tu = idx.parse(path, args=['-I.']) 
                       for node in tu.cursor.walk_preorder():
                           if node.kind in [clang.cindex.CursorKind.FUNCTION_DECL, clang.cindex.CursorKind.CXX_METHOD]:
+                              # Skip internal/system functions
+                              if not node.spelling or node.spelling.startswith('__'): continue
+                              
                               if list(node.get_children()):
                                   class_name = node.semantic_parent.spelling if node.semantic_parent else "Global"
                                   method_name = node.spelling
-                                  display_name = f"{class_name}_{method_name}".replace(':', '_')
+                                  
+                                  # CLEAN FILENAME: Remove anything not alpha-numeric
+                                  safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', f"{class_name}_{method_name}")
+                                  f_base = f"ast_{safe_name}"
+                                  
                                   puml = ["@startuml", "skinparam style strictuml", f"participant {class_name}"]
                                   walk_ast(node, puml, class_name)
                                   puml.append("@enduml")
+                                  
                                   if len(puml) > 4:
-                                      f_base = f"ast_{display_name}"
-                                      with open(f"{f_base}.puml", "w") as f: f.write("\n".join(puml))
-                                      os.system(f"plantuml {f_base}.puml -tpng")
-                                      os.system(f"mv {f_base}.png docs/diagrams/methods/ 2>/dev/null || true")
-                                      if os.path.exists(f"{f_base}.puml"): os.remove(f"{f_base}.puml")
+                                      puml_file = f"{f_base}.puml"
+                                      with open(puml_file, "w") as f: f.write("\n".join(puml))
+                                      
+                                      # Run PlantUML via shell only for the render
+                                      os.system(f"plantuml {puml_file} -tpng")
+                                      
+                                      # Move files using Python logic to avoid shell errors
+                                      png_file = f"{f_base}.png"
+                                      if os.path.exists(png_file):
+                                          dest = os.path.join("docs/diagrams/methods", png_file)
+                                          shutil.move(png_file, dest)
+                                      if os.path.exists(puml_file): os.remove(puml_file)
           EOF
 
       - name: Deploy Diagrams
